@@ -7,11 +7,10 @@
 
 Every protein binder design method (RFdiffusion, BindCraft, AlphaProteo)
 optimises for binding **affinity (Kd)**. This project designs binders for
-a specified **koff** — the rate of unbinding. koff is clinically more
-important than Kd for therapeutics: it determines how long a drug stays
+a specified **koff** — the rate of unbinding. koff determines how long a drug stays
 bound to its target.
 
-**Scientific novelty:** koff is determined by the transition-state free energy
+**Scientific novelty:** koff is determined by the transition state free energy
 ΔG‡, not the ground-state energy. This requires learning interface features
 that predict unbinding barriers — a representation nobody has trained a
 generative model on.
