@@ -1,0 +1,6 @@
+Model,Test r,Spearman ρ,Test RMSE,Val RMSE
+Full model (ESM-2 + ECMPConv + Attention + NLL),0.8246,0.8336,0.9241,0.9049
+No ESM-2 (one-hot + ECMPConv + Attention + NLL),0.6004,0.61,1.3019,1.245
+No attention pool (ESM-2 + ECMPConv + NLL),0.7946,0.7919,0.9991,0.9049
+GCN instead of ECMPConv (ESM-2 + Attention + NLL),0.7973,0.7959,0.9863,0.9379
+MSE loss instead of Gaussian NLL,0.7869,0.7878,1.0213,0.9171

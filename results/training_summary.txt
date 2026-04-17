@@ -1,0 +1,7 @@
+koffGNN Training Summary
+========================
+Test RMSE (log10 koff): 1.2674
+Test Pearson r        : 0.6400
+Best val RMSE         : 1.1083
+Best epoch            : 81
+Args: {'epochs': 200, 'batch_size': 32, 'hidden_dim': 256, 'n_layers': 4, 'dropout': 0.2, 'lr': 0.0003, 'weight_decay': 0.0001, 'train_frac': 0.7, 'val_frac': 0.15, 'patience': 30, 'seed': 42}

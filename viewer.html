@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>koffGNN — Interface Viewer</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&family=Syne:wght@600;700&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #080a0d; color: #e8eaf0; font-family: 'JetBrains Mono', monospace; overflow: hidden; }
+#canvas-wrap { position: fixed; inset: 0; }
+canvas { display: block; }
+
+/* HUD */
+.hud { position: fixed; z-index: 10; pointer-events: none; }
+
+.top-left {
+  top: 1.5rem; left: 1.5rem;
+}
+.logo { font-family: 'Syne', sans-serif; font-size: 1.2rem; font-weight: 700; }
+.logo span { color: #22d3a0; }
+.sub { font-size: .65rem; color: #6b7280; margin-top: 2px; letter-spacing: .04em; }
+
+.top-right {
+  top: 1.5rem; right: 1.5rem;
+  text-align: right;
+}
+.koff-big { font-size: 1.6rem; font-weight: 500; color: #22d3a0; line-height: 1; }
+.koff-label { font-size: .6rem; color: #6b7280; margin-top: 3px; letter-spacing: .06em; text-transform: uppercase; }
+.tau-val { font-size: .85rem; color: #60a5fa; margin-top: 6px; }
+
+.bottom-left {
+  bottom: 1.5rem; left: 1.5rem;
+  pointer-events: all;
+}
+
+.legend { margin-bottom: 1rem; }
+.legend-title { font-size: .6rem; color: #6b7280; letter-spacing: .06em; text-transform: uppercase; margin-bottom: .4rem; }
+.legend-item { display: flex; align-items: center; gap: .5rem; font-size: .7rem; color: #9ca3af; margin-bottom: .25rem; }
+.dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.line-sample { width: 20px; height: 2px; flex-shrink: 0; border-radius: 1px; }
+
+.controls { font-size: .65rem; color: #4b5563; line-height: 1.8; }
+
+.bottom-right {
+  bottom: 1.5rem; right: 1.5rem;
+  text-align: right;
+}
+
+.stat-row { display: flex; gap: 1.5rem; justify-content: flex-end; }
+.stat { }
+.stat-val { font-size: 1.1rem; font-weight: 500; color: #e8eaf0; }
+.stat-lab { font-size: .6rem; color: #6b7280; letter-spacing: .04em; text-transform: uppercase; }
+
+.tooltip {
+  position: fixed;
+  background: rgba(8, 10, 13, 0.92);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px;
+  padding: .6rem .9rem;
+  font-size: .72rem;
+  pointer-events: none;
+  display: none;
+  z-index: 20;
+  min-width: 160px;
+}
+.tt-res { font-size: .9rem; font-weight: 500; color: #22d3a0; margin-bottom: .3rem; }
+.tt-row { color: #9ca3af; display: flex; justify-content: space-between; gap: 1rem; }
+.tt-val { color: #e8eaf0; }
+
+/* Load overlay */
+#load-overlay {
+  position: fixed; inset: 0; background: #080a0d;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  z-index: 100;
+}
+.load-title { font-family: 'Syne', sans-serif; font-size: 1.4rem; font-weight: 700; margin-bottom: .5rem; }
+.load-title span { color: #22d3a0; }
+.load-sub { font-size: .75rem; color: #6b7280; margin-bottom: 2rem; }
+.load-input-row { display: flex; gap: .75rem; align-items: center; }
+input[type=file] { display: none; }
+.file-btn {
+  background: #111318; border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 6px; color: #e8eaf0; font-family: 'JetBrains Mono', monospace;
+  font-size: .8rem; padding: .6rem 1.2rem; cursor: pointer; transition: all .2s;
+}
+.file-btn:hover { border-color: #22d3a0; color: #22d3a0; }
+.or-txt { color: #4b5563; font-size: .75rem; }
+.load-demo-btn {
+  background: #22d3a0; border: none; border-radius: 6px;
+  color: #000; font-family: 'JetBrains Mono', monospace;
+  font-size: .8rem; font-weight: 500; padding: .6rem 1.4rem;
+  cursor: pointer; transition: all .2s;
+}
+.load-demo-btn:hover { background: #1bbf8f; }
+.load-hint { font-size: .65rem; color: #4b5563; margin-top: 1rem; text-align: center; line-height: 1.6; }
+</style>
+</head>
+<body>
+
+<!-- Load overlay -->
+<div id="load-overlay">
+  <div class="load-title">koff<span>GNN</span> Interface Viewer</div>
+  <div class="load-sub">3D visualization of interface graph · attention weights · predicted koff</div>
+  <div class="load-input-row">
+    <label class="file-btn" for="json-file">Load interface.json</label>
+    <input type="file" id="json-file" accept=".json" onchange="loadFile(this)">
+    <span class="or-txt">or</span>
+    <button class="load-demo-btn" onclick="loadDemo()">Load IL-2 / NARA1 demo</button>
+  </div>
+  <div class="load-hint">
+    Generate interface.json by running:<br>
+    python visualize_interface.py --pdb data/raw/pdb/5lqb.pdb --chain A
+  </div>
+</div>
+
+<!-- Canvas -->
+<div id="canvas-wrap"><canvas id="c"></canvas></div>
+
+<!-- HUD -->
+<div class="hud top-left">
+  <div class="logo">koff<span>GNN</span></div>
+  <div class="sub" id="pdb-label">—</div>
+</div>
+
+<div class="hud top-right">
+  <div class="koff-label">Predicted k<sub>off</sub></div>
+  <div class="koff-big" id="koff-display">—</div>
+  <div class="tau-val" id="tau-display">—</div>
+</div>
+
+<div class="hud bottom-left">
+  <div class="legend">
+    <div class="legend-title">Interface nodes</div>
+    <div class="legend-item"><div class="dot" style="background:#22d3a0"></div> Binder (high attention)</div>
+    <div class="legend-item"><div class="dot" style="background:#064e3b"></div> Binder (low attention)</div>
+    <div class="legend-item"><div class="dot" style="background:#60a5fa"></div> Target (high attention)</div>
+    <div class="legend-item"><div class="dot" style="background:#1e3a5f"></div> Target (low attention)</div>
+  </div>
+  <div class="legend">
+    <div class="legend-title">Edges</div>
+    <div class="legend-item"><div class="line-sample" style="background:#22d3a0"></div> H-bond (cross-chain)</div>
+    <div class="legend-item"><div class="line-sample" style="background:#f59e0b"></div> Hydrophobic</div>
+    <div class="legend-item"><div class="line-sample" style="background:#a78bfa"></div> Salt bridge</div>
+    <div class="legend-item"><div class="line-sample" style="background:#1f2937"></div> Contact</div>
+  </div>
+  <div class="controls">
+    Drag to rotate · Scroll to zoom · Click residue for info
+  </div>
+</div>
+
+<div class="hud bottom-right">
+  <div class="stat-row">
+    <div class="stat">
+      <div class="stat-val" id="stat-nodes">—</div>
+      <div class="stat-lab">Interface residues</div>
+    </div>
+    <div class="stat">
+      <div class="stat-val" id="stat-edges">—</div>
+      <div class="stat-lab">Contacts</div>
+    </div>
+    <div class="stat">
+      <div class="stat-val" id="stat-hbonds">—</div>
+      <div class="stat-lab">H-bonds</div>
+    </div>
+  </div>
+</div>
+
+<div class="tooltip" id="tooltip">
+  <div class="tt-res" id="tt-res">—</div>
+  <div class="tt-row"><span>Chain</span><span class="tt-val" id="tt-chain">—</span></div>
+  <div class="tt-row"><span>Attention</span><span class="tt-val" id="tt-attn">—</span></div>
+  <div class="tt-row"><span>Burial (rSASA)</span><span class="tt-val" id="tt-burial">—</span></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+// ── Three.js setup ────────────────────────────────────────────────────────
+const canvas   = document.getElementById('c');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+renderer.setPixelRatio(window.devicePixelRatio);
+renderer.setClearColor(0x080a0d, 1);
+
+const scene  = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 2000);
+camera.position.set(0, 0, 120);
+
+// Lights
+scene.add(new THREE.AmbientLight(0xffffff, 0.4));
+const dir1 = new THREE.DirectionalLight(0xffffff, 0.8);
+dir1.position.set(1, 2, 3);
+scene.add(dir1);
+const dir2 = new THREE.DirectionalLight(0x60a5fa, 0.3);
+dir2.position.set(-2, -1, -1);
+scene.add(dir2);
+
+// ── Mouse controls (orbit) ────────────────────────────────────────────────
+let isDragging = false, prevX = 0, prevY = 0;
+let rotX = 0, rotY = 0, zoom = 120;
+const group = new THREE.Group();
+scene.add(group);
+
+canvas.addEventListener('mousedown', e => { isDragging = true; prevX = e.clientX; prevY = e.clientY; });
+window.addEventListener('mouseup',   () => isDragging = false);
+window.addEventListener('mousemove', e => {
+  if (!isDragging) return;
+  rotY += (e.clientX - prevX) * 0.4;
+  rotX += (e.clientY - prevY) * 0.4;
+  prevX = e.clientX; prevY = e.clientY;
+});
+canvas.addEventListener('wheel', e => {
+  zoom = Math.max(30, Math.min(300, zoom + e.deltaY * 0.1));
+  e.preventDefault();
+}, { passive: false });
+
+// Touch support
+let lastTouch = null;
+canvas.addEventListener('touchstart', e => { lastTouch = e.touches[0]; });
+canvas.addEventListener('touchmove', e => {
+  if (!lastTouch) return;
+  const t = e.touches[0];
+  rotY += (t.clientX - lastTouch.clientX) * 0.4;
+  rotX += (t.clientY - lastTouch.clientY) * 0.4;
+  lastTouch = t;
+  e.preventDefault();
+}, { passive: false });
+
+// ── Resize ────────────────────────────────────────────────────────────────
+function resize() {
+  const w = window.innerWidth, h = window.innerHeight;
+  renderer.setSize(w, h);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+}
+window.addEventListener('resize', resize);
+resize();
+
+// ── Raycasting for hover ──────────────────────────────────────────────────
+const raycaster = new THREE.Raycaster();
+raycaster.params.Points = { threshold: 2 };
+const mouse = new THREE.Vector2();
+let nodeMeshes = [];
+let nodeData   = [];
+
+window.addEventListener('mousemove', e => {
+  mouse.x =  (e.clientX / window.innerWidth)  * 2 - 1;
+  mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+
+  raycaster.setFromCamera(mouse, camera);
+  const hits = raycaster.intersectObjects(nodeMeshes);
+
+  const tt = document.getElementById('tooltip');
+  if (hits.length > 0) {
+    const idx = nodeMeshes.indexOf(hits[0].object);
+    if (idx >= 0) {
+      const nd = nodeData[idx];
+      document.getElementById('tt-res').textContent =
+        `${nd.resname}${nd.resnum} (${nd.chain})`;
+      document.getElementById('tt-chain').textContent =
+        nd.chain_label === 0 ? 'Binder' : 'Target';
+      document.getElementById('tt-attn').textContent =
+        nd.attn_weight.toFixed(4);
+      document.getElementById('tt-burial').textContent =
+        nd.burial.toFixed(3);
+      tt.style.display = 'block';
+      tt.style.left = (e.clientX + 14) + 'px';
+      tt.style.top  = (e.clientY - 20) + 'px';
+    }
+  } else {
+    tt.style.display = 'none';
+  }
+});
+
+// ── Build scene from data ─────────────────────────────────────────────────
+function buildScene(data) {
+  // Clear
+  while (group.children.length) group.remove(group.children[0]);
+  nodeMeshes = []; nodeData = [];
+
+  const { meta, nodes, edges, backbone } = data;
+
+  // Update HUD
+  document.getElementById('pdb-label').textContent =
+    `PDB: ${meta.pdb.toUpperCase()} · chain ${meta.binder_chain} vs ${meta.target_chain}`;
+  document.getElementById('koff-display').textContent =
+    `${meta.koff_pred} s⁻¹`;
+  document.getElementById('tau-display').textContent =
+    `τ = ${meta.tau_h} h (${Math.round(meta.tau_s / 60)} min)`;
+  document.getElementById('stat-nodes').textContent = meta.n_nodes;
+  document.getElementById('stat-edges').textContent = meta.n_edges;
+  const nHbonds = edges.filter(e => e.type === 'hbond').length;
+  document.getElementById('stat-hbonds').textContent = nHbonds;
+
+  // ── Backbone ribbon (as tube) ─────────────────────────────────────────
+  backbone.forEach(chain => {
+    if (chain.coords.length < 2) return;
+    const pts = chain.coords.map(c => new THREE.Vector3(c[0], c[1], c[2]));
+    const curve = new THREE.CatmullRomCurve3(pts);
+    const geom  = new THREE.TubeGeometry(curve, pts.length * 2, 0.4, 6, false);
+    const color = chain.is_binder ? 0x134e4a : 0x1e3a5f;
+    const mat   = new THREE.MeshPhongMaterial({
+      color, transparent: true, opacity: 0.35, shininess: 20
+    });
+    group.add(new THREE.Mesh(geom, mat));
+  });
+
+  // ── Edges ─────────────────────────────────────────────────────────────
+  const edgeColors = {
+    hbond:      0x22d3a0,
+    salt:       0xa78bfa,
+    pi:         0xf472b6,
+    hydrophobic: 0xf59e0b,
+    contact:    0x1f2937,
+  };
+
+  // Only draw cross-chain and H-bond edges to avoid clutter
+  const importantEdges = edges.filter(e =>
+    e.type === 'hbond' || e.type === 'salt' ||
+    (e.cross_chain && e.type !== 'contact')
+  );
+
+  importantEdges.slice(0, 500).forEach(edge => {
+    const src = nodes[edge.src];
+    const dst = nodes[edge.dst];
+    if (!src || !dst) return;
+
+    const pts = [
+      new THREE.Vector3(src.x, src.y, src.z),
+      new THREE.Vector3(dst.x, dst.y, dst.z),
+    ];
+    const geom = new THREE.BufferGeometry().setFromPoints(pts);
+    const color = edgeColors[edge.type] || 0x374151;
+    const opacity = edge.type === 'hbond' ? 0.7 : 0.3;
+    const mat = new THREE.LineBasicMaterial({ color, transparent: true, opacity });
+    group.add(new THREE.Line(geom, mat));
+  });
+
+  // ── Nodes (spheres) ───────────────────────────────────────────────────
+  nodes.forEach((nd, i) => {
+    const isBinder = nd.chain_label === 0;
+    const attn     = nd.attn_weight;   // 0→1
+
+    // Color: binder = green scale, target = blue scale
+    let color;
+    if (isBinder) {
+      // Low attn: dark green, high attn: bright green
+      const r = Math.round(attn * 34);
+      const g = Math.round(100 + attn * 111);
+      const b = Math.round(attn * 80);
+      color = (r << 16) | (g << 8) | b;
+    } else {
+      // Low attn: dark blue, high attn: bright blue
+      const r = Math.round(attn * 40);
+      const g = Math.round(100 + attn * 65);
+      const b = Math.round(150 + attn * 100);
+      color = (r << 16) | (g << 8) | b;
+    }
+
+    // Size: higher attention → larger sphere
+    const radius = 0.8 + attn * 1.8;
+    const geom   = new THREE.SphereGeometry(radius, 12, 12);
+    const mat    = new THREE.MeshPhongMaterial({
+      color,
+      shininess: 60,
+      emissive:  color,
+      emissiveIntensity: 0.15,
+    });
+    const mesh = new THREE.Mesh(geom, mat);
+    mesh.position.set(nd.x, nd.y, nd.z);
+    group.add(mesh);
+    nodeMeshes.push(mesh);
+    nodeData.push(nd);
+
+    // Glow ring for high-attention binder residues
+    if (isBinder && attn > 0.7) {
+      const ringGeom = new THREE.RingGeometry(radius + 0.3, radius + 0.8, 16);
+      const ringMat  = new THREE.MeshBasicMaterial({
+        color: 0x22d3a0, transparent: true, opacity: 0.4,
+        side: THREE.DoubleSide,
+      });
+      const ring = new THREE.Mesh(ringGeom, ringMat);
+      ring.position.set(nd.x, nd.y, nd.z);
+      group.add(ring);
+    }
+  });
+
+  document.getElementById('load-overlay').style.display = 'none';
+}
+
+// ── Demo data (synthetic IL-2 interface) ──────────────────────────────────
+function generateDemoData() {
+  // Synthetic but realistic interface graph
+  const meta = {
+    pdb: "5lqb", binder_chain: "A", target_chain: "H",
+    n_nodes: 45, n_edges: 180,
+    log_koff: -3.98, koff_pred: 1.05e-4,
+    tau_s: 9524, tau_h: 2.65,
+    y_mean: -3.086, y_std: 1.533,
+  };
+
+  const rng = (seed) => {
+    let s = seed;
+    return () => { s = (s * 1664525 + 1013904223) & 0xffffffff; return (s >>> 0) / 0xffffffff; };
+  };
+  const rand = rng(42);
+
+  const AAS = "ACDEFGHIKLMNPQRSTVWY";
+  const nodes = [];
+
+  // Binder nodes (25) — roughly planar interface
+  for (let i = 0; i < 25; i++) {
+    const theta = rand() * Math.PI * 2;
+    const r     = 5 + rand() * 15;
+    nodes.push({
+      id: i, x: r * Math.cos(theta), y: r * Math.sin(theta) * 0.6,
+      z: (rand() - 0.5) * 8,
+      chain: "A", chain_label: 0,
+      resname: AAS[Math.floor(rand() * 20)],
+      resnum: 10 + i,
+      attn_weight: Math.pow(rand(), 0.5),
+      burial: 0.2 + rand() * 0.6,
+    });
+  }
+
+  // Target nodes (20)
+  for (let i = 0; i < 20; i++) {
+    const theta = rand() * Math.PI * 2;
+    const r     = 6 + rand() * 12;
+    nodes.push({
+      id: 25 + i, x: r * Math.cos(theta), y: 15 + r * Math.sin(theta) * 0.5,
+      z: (rand() - 0.5) * 8,
+      chain: "H", chain_label: 1,
+      resname: AAS[Math.floor(rand() * 20)],
+      resnum: 50 + i,
+      attn_weight: Math.pow(rand(), 0.8),
+      burial: 0.3 + rand() * 0.5,
+    });
+  }
+
+  const TYPES = ["hbond","hydrophobic","contact","salt","pi"];
+  const edges = [];
+  for (let i = 0; i < 180; i++) {
+    const src = Math.floor(rand() * 45);
+    const dst = Math.floor(rand() * 45);
+    if (src === dst) continue;
+    const cross = (src < 25) !== (dst < 25);
+    const t = cross ? (rand() < 0.3 ? "hbond" : rand() < 0.5 ? "hydrophobic" : "contact")
+                    : "contact";
+    edges.push({ src, dst, type: t, cross_chain: cross, dist_norm: rand() });
+  }
+
+  // Backbone
+  const backbone = [
+    { chain: "A", is_binder: true, coords: Array.from({length: 60}, (_, i) => {
+      const t = i / 59;
+      return [20 * Math.cos(t*Math.PI*2), 5*Math.sin(t*Math.PI*3), t*10-5];
+    })},
+    { chain: "H", is_binder: false, coords: Array.from({length: 80}, (_, i) => {
+      const t = i / 79;
+      return [18 * Math.cos(t*Math.PI*2 + 1), 15 + 6*Math.sin(t*Math.PI*4), t*12-6];
+    })},
+  ];
+
+  return { meta, nodes, edges, backbone };
+}
+
+function loadDemo() {
+  buildScene(generateDemoData());
+}
+
+function loadFile(input) {
+  if (!input.files[0]) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      buildScene(data);
+    } catch(err) {
+      alert('Error parsing JSON: ' + err.message);
+    }
+  };
+  reader.readAsText(input.files[0]);
+}
+
+// ── Animation loop ────────────────────────────────────────────────────────
+let autoRotate = true;
+canvas.addEventListener('mousedown', () => autoRotate = false);
+
+function animate() {
+  requestAnimationFrame(animate);
+  if (autoRotate) rotY += 0.15;
+  group.rotation.x = rotX * Math.PI / 180;
+  group.rotation.y = rotY * Math.PI / 180;
+  camera.position.z = zoom;
+  renderer.render(scene, camera);
+}
+animate();
+</script>
+</body>
+</html>

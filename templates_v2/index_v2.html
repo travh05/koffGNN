@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>koffGNN Research Interface</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&family=Syne:wght@600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{--bg:#080a0d;--bg2:#0f1117;--bg3:#181c22;--border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.14);--text:#e8eaf0;--muted:#6b7280;--dim:#2d3441;--green:#22d3a0;--amber:#f59e0b;--blue:#60a5fa;--purple:#a78bfa;--red:#ef4444;--mono:'JetBrains Mono',monospace;--sans:'Syne',sans-serif}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:var(--mono)}
+
+/* Layout */
+.shell{display:grid;grid-template-columns:300px 1fr 320px;grid-template-rows:48px 1fr;height:100vh}
+
+/* Topbar */
+.topbar{grid-column:1/-1;background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 1.25rem;gap:2rem}
+.logo{font-family:var(--sans);font-size:1rem;font-weight:700;letter-spacing:-.01em}
+.logo span{color:var(--green)}
+.top-stat{font-size:.65rem;color:var(--muted)}
+.top-stat strong{color:var(--green);font-weight:500}
+.top-divider{flex:1}
+.top-badge{font-size:.65rem;padding:3px 8px;border-radius:4px;background:rgba(34,211,160,.1);color:var(--green);border:1px solid rgba(34,211,160,.2)}
+
+/* Left sidebar */
+.sidebar{background:var(--bg2);border-right:1px solid var(--border);overflow-y:auto;padding:1rem}
+.sidebar::-webkit-scrollbar{width:3px}
+.sidebar::-webkit-scrollbar-thumb{background:var(--dim)}
+
+/* Center: 3D canvas */
+.viewer{position:relative;background:var(--bg)}
+#three-canvas{display:block;width:100%;height:100%}
+
+/* Right panel */
+.rightpanel{background:var(--bg2);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+
+/* Panel sections */
+.sec-head{font-size:.6rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:.75rem 1rem .4rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem}
+.sec-head::before{content:'';width:5px;height:5px;border-radius:50%;background:var(--green);flex-shrink:0}
+.sec-body{padding:.75rem 1rem}
+
+/* Form */
+.field{margin-bottom:.75rem}
+label{display:block;font-size:.6rem;color:var(--muted);letter-spacing:.05em;text-transform:uppercase;margin-bottom:.3rem}
+input[type=text],input[type=number],select{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:5px;color:var(--text);font-family:var(--mono);font-size:.78rem;padding:.45rem .65rem;outline:none;transition:border-color .2s}
+input:focus{border-color:var(--green)}
+.or-div{text-align:center;color:var(--dim);font-size:.65rem;margin:.35rem 0}
+.upload-area{border:1px dashed var(--border2);border-radius:5px;padding:.5rem;text-align:center;cursor:pointer;position:relative;transition:border-color .2s}
+.upload-area:hover{border-color:var(--green)}
+.upload-area input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%}
+.upload-lbl{font-size:.68rem;color:var(--muted)}
+.upload-lbl strong{color:var(--green)}
+
+/* koff slider */
+.koff-row{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:.3rem}
+.koff-big{font-size:1rem;font-weight:500;color:var(--green)}
+.koff-tau{font-size:.68rem;color:var(--blue)}
+input[type=range]{width:100%;appearance:none;background:var(--bg3);height:3px;border-radius:2px;outline:none;cursor:pointer}
+input[type=range]::-webkit-slider-thumb{appearance:none;width:12px;height:12px;border-radius:50%;background:var(--green);cursor:pointer}
+.slider-labs{display:flex;justify-content:space-between;font-size:.58rem;color:var(--dim);margin-top:.2rem}
+
+/* Chain pills */
+.pill-row{display:flex;flex-wrap:wrap;gap:.35rem;margin-top:.3rem}
+.c-pill{background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:.25rem .6rem;font-size:.7rem;cursor:pointer;transition:all .15s;color:var(--text)}
+.c-pill:hover{border-color:var(--border2)}
+.c-pill.sel{border-color:var(--green);color:var(--green)}
+
+/* Buttons */
+.btn{width:100%;border:none;border-radius:6px;padding:.6rem;font-family:var(--mono);font-size:.78rem;cursor:pointer;transition:all .2s;font-weight:500}
+.btn-outline{background:transparent;border:1px solid var(--border2);color:var(--text);margin-bottom:.5rem}
+.btn-outline:hover{border-color:var(--green);color:var(--green)}
+.btn-primary{background:var(--green);color:#000;margin-top:.5rem}
+.btn-primary:hover{background:#1bbf8f;transform:translateY(-1px)}
+.btn-primary:disabled{background:var(--dim);color:var(--muted);cursor:not-allowed;transform:none}
+
+/* Tabs */
+.tabs{display:flex;border-bottom:1px solid var(--border)}
+.tab{flex:1;padding:.5rem;text-align:center;font-size:.65rem;cursor:pointer;color:var(--muted);transition:all .15s;border-bottom:2px solid transparent}
+.tab:hover{color:var(--text)}
+.tab.active{color:var(--green);border-bottom-color:var(--green)}
+.tab-content{display:none;flex:1;overflow-y:auto;padding:.75rem}
+.tab-content.active{display:block}
+.tab-content::-webkit-scrollbar{width:3px}
+.tab-content::-webkit-scrollbar-thumb{background:var(--dim)}
+
+/* Progress */
+.prog-bar-wrap{background:var(--bg3);border-radius:2px;height:2px;overflow:hidden;margin:.5rem 0}
+.prog-bar{height:100%;background:var(--green);transition:width .3s}
+.log{font-size:.65rem;color:var(--muted);line-height:1.7;max-height:60px;overflow-y:auto}
+.log .ok{color:var(--green)}.log .err{color:var(--red)}
+
+/* Results table */
+.res-table{width:100%;border-collapse:collapse;font-size:.68rem}
+.res-table th{color:var(--muted);font-size:.58rem;letter-spacing:.04em;text-transform:uppercase;padding:.4rem .5rem;border-bottom:1px solid var(--border);text-align:left}
+.res-table td{padding:.4rem .5rem;border-bottom:1px solid var(--border);color:var(--text)}
+.res-table tr:hover td{background:rgba(255,255,255,.02)}
+.hit-yes{color:var(--green);font-size:.65rem}.hit-no{color:var(--muted);font-size:.65rem}
+.koff-c{color:var(--amber)}.tau-c{color:var(--blue)}.delta-g{color:var(--green)}.delta-b{color:var(--red)}
+
+/* Summary cards */
+.sum-grid{display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin-bottom:.75rem}
+.sum-card{background:var(--bg3);border-radius:5px;padding:.5rem .65rem}
+.sum-val{font-size:.95rem;font-weight:500;color:var(--green)}
+.sum-lab{font-size:.58rem;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-top:2px}
+
+/* Chart */
+.chart-wrap{height:140px;position:relative;margin-bottom:.5rem}
+
+/* Mutation scanner */
+.mut-title{font-size:.7rem;color:var(--text);margin-bottom:.5rem}
+.mut-hint{font-size:.62rem;color:var(--muted);line-height:1.6;margin-bottom:.75rem}
+.heatmap{display:grid;grid-template-columns:repeat(4,1fr);gap:3px}
+.hm-cell{border-radius:3px;padding:.3rem .2rem;text-align:center;font-size:.68rem;font-weight:500;cursor:default;transition:transform .1s}
+.hm-cell:hover{transform:scale(1.05)}
+.hm-aa{font-size:.55rem;opacity:.7}
+.hm-delta{font-size:.65rem}
+.mut-loading{text-align:center;padding:2rem;color:var(--muted);font-size:.75rem}
+
+/* 3D overlay labels */
+.viewer-label{position:absolute;top:.75rem;left:.75rem;pointer-events:none}
+.vl-pdb{font-size:.65rem;color:var(--muted)}
+.vl-koff{font-size:1.1rem;font-weight:500;color:var(--green);margin-top:2px}
+.vl-tau{font-size:.7rem;color:var(--blue)}
+.viewer-hint{position:absolute;bottom:.75rem;left:50%;transform:translateX(-50%);font-size:.6rem;color:var(--dim);pointer-events:none;white-space:nowrap}
+
+/* Tooltip */
+.tooltip3d{position:fixed;background:rgba(8,10,13,.95);border:1px solid var(--border2);border-radius:7px;padding:.5rem .8rem;font-size:.68rem;pointer-events:none;display:none;z-index:50;min-width:140px}
+.tt-head{font-size:.82rem;font-weight:500;color:var(--green);margin-bottom:.3rem}
+.tt-row{display:flex;justify-content:space-between;gap:.75rem;color:var(--muted);margin-bottom:.15rem}
+.tt-val{color:var(--text)}
+.tt-scan-btn{margin-top:.4rem;width:100%;background:transparent;border:1px solid var(--border2);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:.62rem;padding:.25rem;cursor:pointer;pointer-events:all}
+.tt-scan-btn:hover{border-color:var(--green);color:var(--green)}
+
+/* Empty states */
+.empty{text-align:center;padding:2rem 1rem;color:var(--dim)}
+.empty-icon{font-size:1.8rem;margin-bottom:.5rem;opacity:.3}
+.empty-sub{font-size:.68rem;line-height:1.7}
+
+/* Feature list for paper */
+.feat-item{display:flex;gap:.75rem;margin-bottom:.6rem;align-items:flex-start}
+.feat-num{font-size:.65rem;color:var(--green);font-weight:500;flex-shrink:0;margin-top:2px}
+.feat-text{font-size:.65rem;color:var(--muted);line-height:1.6}
+.feat-text strong{color:var(--text)}
+</style>
+</head>
+<body>
+<div class="shell">
+
+<!-- Topbar -->
+<div class="topbar">
+  <div class="logo">koff<span>GNN</span></div>
+  <div class="top-divider"></div>
+  <div class="top-badge">Residence-Time Conditioned Design</div>
+</div>
+
+<!-- Left sidebar: controls -->
+<div class="sidebar">
+  <div class="sec-head">Structure</div>
+  <div class="sec-body">
+    <div class="field">
+      <label>PDB ID</label>
+      <input type="text" id="pdb-id" placeholder="e.g. 5lqb" oninput="clearFile()">
+    </div>
+    <div class="or-div">or</div>
+    <div class="field">
+      <div class="upload-area">
+        <input type="file" id="pdb-file" accept=".pdb" onchange="handleFile(this)">
+        <div class="upload-lbl" id="file-lbl"><strong>Upload</strong> .pdb</div>
+      </div>
+    </div>
+    <button class="btn btn-outline" onclick="loadStructure()">Load structure</button>
+
+    <div id="chain-field" style="display:none">
+      <label>Binder Chain</label>
+      <div class="pill-row" id="chain-pills"></div>
+    </div>
+  </div>
+
+  <div class="sec-head">Target Residence Time</div>
+  <div class="sec-body">
+    <div class="koff-row">
+      <span class="koff-big" id="koff-val">1.00×10⁻⁴ s⁻¹</span>
+      <span class="koff-tau" id="koff-tau">τ=2.78h</span>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin-bottom:.5rem">
+      <div class="field" style="margin:0">
+        <label>Hours (τ)</label>
+        <input type="number" id="tau-h-input" value="2.78" min="0.001" max="277" step="0.1"
+               oninput="setFromTau(this.value)" style="font-size:.78rem">
+      </div>
+      <div class="field" style="margin:0">
+        <label>Minutes (τ)</label>
+        <input type="number" id="tau-m-input" value="167" min="0.1" max="16666" step="1"
+               oninput="setFromMinutes(this.value)" style="font-size:.78rem">
+      </div>
+    </div>
+    <input type="range" id="koff-sl" min="-6" max="-1" step="0.01" value="-4" oninput="updateKoff(this.value)">
+    <div class="slider-labs"><span>10⁻⁶ (277h)</span><span>10⁻¹ (10s)</span></div>
+  </div>
+
+  <div class="sec-head">MCMC Parameters</div>
+  <div class="sec-body">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem">
+      <div class="field"><label>Chains</label><input type="number" id="n-chains" value="5" min="1" max="20"></div>
+      <div class="field"><label>Steps</label><input type="number" id="n-steps" value="200" min="50" max="1000"></div>
+    </div>
+    <button class="btn btn-primary" id="run-btn" onclick="startDesign()" disabled>
+      Run Generative Design
+    </button>
+  </div>
+
+  
+</div>
+
+<!-- Center: 3D viewer -->
+<div class="viewer" id="viewer-wrap">
+  <canvas id="three-canvas"></canvas>
+  <div class="viewer-label" id="viewer-label" style="display:none">
+    <div class="vl-pdb" id="vl-pdb"></div>
+    <div class="vl-koff" id="vl-koff"></div>
+    <div class="vl-tau" id="vl-tau"></div>
+  </div>
+  <div class="viewer-hint" id="viewer-hint" style="display:none">
+    drag to rotate · scroll to zoom · click residue to scan mutations
+  </div>
+  <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none" id="viewer-empty">
+    <div style="font-size:2rem;opacity:.15;margin-bottom:1rem">⬡</div>
+    <div style="font-size:.75rem;color:var(--dim)">Load a structure to see the interface in 3D</div>
+  </div>
+</div>
+
+<!-- Right panel: tabs -->
+<div class="rightpanel">
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('design')">Design</div>
+    <div class="tab" onclick="switchTab('mutations')">Mutations</div>
+    <div class="tab" onclick="switchTab('analysis')">Analysis</div>
+  </div>
+
+  <!-- Design tab -->
+  <div class="tab-content active" id="tab-design">
+    <!-- Progress -->
+    <div id="prog-section" style="display:none;margin-bottom:.75rem">
+      <div style="display:flex;justify-content:space-between;font-size:.65rem;margin-bottom:.25rem">
+        <span id="prog-label" style="color:var(--muted)">Initializing...</span>
+        <span id="prog-pct" style="color:var(--green)">0%</span>
+      </div>
+      <div class="prog-bar-wrap"><div class="prog-bar" id="prog-bar" style="width:0%"></div></div>
+      <div class="chart-wrap"><canvas id="conv-chart"></canvas></div>
+      <div class="log" id="log"></div>
+    </div>
+
+    <!-- Results -->
+    <div id="res-section" style="display:none">
+      <div class="sum-grid" id="sum-grid"></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem">
+        <span style="font-size:.62rem;color:var(--muted)" id="res-title">Results</span>
+        <button class="btn" style="width:auto;padding:.25rem .65rem;font-size:.62rem;background:transparent;border:1px solid var(--border2);color:var(--text);border-radius:4px" onclick="dlCSV()">CSV ↓</button>
+      </div>
+      <table class="res-table">
+        <thead><tr><th>#</th><th>k<sub>off</sub></th><th>τ (h)</th><th>Δlog</th><th>Hit</th><th>Seq</th></tr></thead>
+        <tbody id="res-tbody"></tbody>
+      </table>
+    </div>
+
+    <!-- Empty -->
+    <div class="empty" id="design-empty">
+      <div class="empty-icon">⟳</div>
+      <div class="empty-sub">Load a structure and run the<br>generative MCMC design</div>
+    </div>
+  </div>
+
+  <!-- Mutations tab -->
+  <div class="tab-content" id="tab-mutations">
+    <div class="mut-hint">
+      Click any <span style="color:var(--green)">binder residue</span> in the 3D view to scan all 20 amino acid substitutions and see how each changes predicted k<sub>off</sub>.
+    </div>
+    <div id="mut-content">
+      <div class="empty">
+        <div class="empty-icon">◎</div>
+        <div class="empty-sub">Click a green residue<br>in the 3D viewer</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Analysis tab -->
+  <div class="tab-content" id="tab-analysis">
+    <div style="font-size:.65rem;color:var(--muted);margin-bottom:.75rem;line-height:1.7">
+      Key results from this session. Predicted uncertainty shown as ±1σ in log₁₀(k<sub>off</sub>) units.
+    </div>
+    <div id="analysis-content">
+      <div class="empty">
+        <div class="empty-icon">∿</div>
+        <div class="empty-sub">Run a design to see<br>analysis metrics</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div><!-- shell -->
+
+<!-- Tooltip -->
+<div class="tooltip3d" id="tt3d">
+  <div class="tt-head" id="tt-head">—</div>
+  <div class="tt-row"><span>Chain</span><span class="tt-val" id="tt-chain">—</span></div>
+  <div class="tt-row"><span>Attention</span><span class="tt-val" id="tt-attn">—</span></div>
+  <div class="tt-row"><span>Burial</span><span class="tt-val" id="tt-burial">—</span></div>
+  <button class="tt-scan-btn" id="tt-scan-btn" onclick="scanMutation()">Scan mutations →</button>
+</div>
+
+<script>
+// ── State ────────────────────────────────────────────────────────────────
+let pdbPath = null, selChain = null, jobId = null;
+let ifaceData = null, selNode = null;
+
+// ── koff slider ───────────────────────────────────────────────────────────
+function setFromTau(h){
+  const koff=1/(parseFloat(h)*3600);
+  const logk=Math.log10(koff);
+  document.getElementById('koff-sl').value=Math.max(-6,Math.min(-1,logk));
+  updateKoff(logk);
+}
+function setFromMinutes(m){
+  setFromTau(parseFloat(m)/60);
+}
+function updateKoff(v){
+  const k=Math.pow(10,parseFloat(v)), tau=1/k;
+  document.getElementById('koff-val').textContent=`${k.toExponential(2).replace('e-','×10⁻').replace('e+','×10')} s⁻¹`;
+  const h=tau/3600;
+  document.getElementById('koff-tau').textContent=h>=1?`τ=${h.toFixed(2)}h`:`τ=${Math.round(tau/60)}min`;
+  const hi=document.getElementById('tau-h-input');
+  const mi=document.getElementById('tau-m-input');
+  if(hi&&document.activeElement!==hi) hi.value=h.toFixed(2);
+  if(mi&&document.activeElement!==mi) mi.value=Math.round(tau/60);
+}
+updateKoff(-4);
+
+// ── Tabs ──────────────────────────────────────────────────────────────────
+function switchTab(name){
+  document.querySelectorAll('.tab,.tab-content').forEach(el=>{el.classList.remove('active')});
+  document.querySelector(`.tab[onclick="switchTab('${name}')"]`).classList.add('active');
+  document.getElementById('tab-'+name).classList.add('active');
+}
+
+// ── Structure loading ─────────────────────────────────────────────────────
+function clearFile(){document.getElementById('pdb-file').value='';document.getElementById('file-lbl').innerHTML='<strong>Upload</strong> .pdb';}
+function handleFile(i){if(i.files[0]){document.getElementById('file-lbl').innerHTML=`<strong>${i.files[0].name}</strong>`;document.getElementById('pdb-id').value='';}}
+
+async function loadStructure(){
+  const fd=new FormData();
+  const pid=document.getElementById('pdb-id').value.trim();
+  const pf=document.getElementById('pdb-file').files[0];
+  if(pf) fd.append('pdb_file',pf);
+  else if(pid) fd.append('pdb_id',pid);
+  else{alert('Enter PDB ID or upload file');return;}
+  const r=await fetch('/chains',{method:'POST',body:fd});
+  const d=await r.json();
+  if(d.error){alert(d.error);return;}
+  pdbPath=d.pdb_path;
+  const cf=document.getElementById('chain-field');
+  cf.style.display='block';
+  const cp=document.getElementById('chain-pills');
+  cp.innerHTML='';
+  Object.entries(d.chains).forEach(([id,n])=>{
+    const p=document.createElement('div');
+    p.className='c-pill';
+    p.innerHTML=`${id} <span style="color:var(--muted);font-size:.62rem">${n}aa</span>`;
+    p.onclick=()=>{selChain=id;document.querySelectorAll('.c-pill').forEach(x=>x.classList.remove('sel'));p.classList.add('sel');document.getElementById('run-btn').disabled=false;loadInterface();};
+    cp.appendChild(p);
+  });
+}
+
+// ── Load interface into 3D viewer ─────────────────────────────────────────
+async function loadInterface(){
+  if(!pdbPath||!selChain) return;
+  const r=await fetch('/interface',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pdb_path:pdbPath,binder_chain:selChain})});
+  ifaceData=await r.json();
+  build3D(ifaceData);
+  document.getElementById('viewer-empty').style.display='none';
+  document.getElementById('viewer-label').style.display='block';
+  document.getElementById('viewer-hint').style.display='block';
+  document.getElementById('vl-pdb').textContent=`${ifaceData.meta.pdb.toUpperCase()} · ${selChain} vs ${ifaceData.meta.target_chain}`;
+  document.getElementById('vl-koff').textContent=`koff = ${ifaceData.meta.koff_pred} s⁻¹`;
+  document.getElementById('vl-tau').textContent=`τ = ${ifaceData.meta.tau_h} h ± ${ifaceData.meta.std_log_koff} log`;
+}
+
+// ── MCMC Design ───────────────────────────────────────────────────────────
+async function startDesign(){
+  if(!pdbPath||!selChain) return;
+  document.getElementById('design-empty').style.display='none';
+  document.getElementById('res-section').style.display='none';
+  document.getElementById('prog-section').style.display='block';
+  document.getElementById('run-btn').disabled=true;
+  document.getElementById('prog-bar').style.width='0%';
+  document.getElementById('log').innerHTML='';
+  initChart();
+  const r=await fetch('/design',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pdb_path:pdbPath,binder_chain:selChain,target_koff:Math.pow(10,parseFloat(document.getElementById('koff-sl').value)),n_sequences:parseInt(document.getElementById('n-chains').value),n_steps:parseInt(document.getElementById('n-steps').value)})});
+  const {job_id}=await r.json(); jobId=job_id;
+  const es=new EventSource(`/stream/${job_id}`);
+  es.onmessage=e=>{const m=JSON.parse(e.data);handleEv(m);if(m.event==='done'||m.event==='end'||m.event==='error'){es.close();document.getElementById('run-btn').disabled=false;}};
+}
+
+function logLine(t,cls=''){const d=document.createElement('div');d.className=cls;d.textContent='> '+t;const l=document.getElementById('log');l.appendChild(d);l.scrollTop=l.scrollHeight;}
+
+function handleEv(m){
+  const {event,data}=m;
+  if(event==='status'){logLine(data.msg);document.getElementById('prog-label').textContent=data.msg;}
+  if(event==='progress'){
+    document.getElementById('prog-bar').style.width=data.pct+'%';
+    document.getElementById('prog-pct').textContent=data.pct+'%';
+    document.getElementById('prog-label').textContent=`Step ${data.step}/${data.n_steps} T=${data.T.toFixed(3)}`;
+    if(convChart&&data.chains){
+      data.chains.forEach((lk,i)=>{if(convChart.data.datasets[i]) convChart.data.datasets[i].data.push({x:data.step,y:lk});});
+      convChart.update('none');
+    }
+  }
+  if(event==='done'){logLine('Design complete!','ok');document.getElementById('prog-bar').style.width='100%';renderResults(data);renderAnalysis(data);}
+  if(event==='error'){logLine('ERROR: '+data.msg,'err');}
+}
+
+function renderResults(data){
+  document.getElementById('res-section').style.display='block';
+  const tgt=Math.log10(Math.pow(10,parseFloat(document.getElementById('koff-sl').value)));
+  document.getElementById('sum-grid').innerHTML=`
+    <div class="sum-card"><div class="sum-val">${data.n_hits}/${data.n_total}</div><div class="sum-lab">In range</div></div>
+    <div class="sum-card"><div class="sum-val">${data.best_delta?.toFixed(3)||'—'}</div><div class="sum-lab">Best Δlog</div></div>
+    <div class="sum-card"><div class="sum-val">${data.best_koff||'—'}</div><div class="sum-lab">Best k<sub>off</sub></div></div>
+    <div class="sum-card"><div class="sum-val">${data.best_tau_h||'—'}h</div><div class="sum-lab">Best τ</div></div>`;
+  document.getElementById('res-title').textContent=`${data.n_hits}/${data.n_total} sequences hit target`;
+  const tb=document.getElementById('res-tbody'); tb.innerHTML='';
+  (data.results||[]).forEach((r,i)=>{
+    const dc=r.delta_log_koff<0.5?'delta-g':'delta-b';
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td style="color:var(--dim)">${i+1}</td><td class="koff-c">${r.koff_pred}</td><td class="tau-c">${r.residence_time_h}</td><td class="${dc}">${r.delta_log_koff.toFixed(3)}</td><td class="${r.in_target_range?'hit-yes':'hit-no'}">${r.in_target_range?'✓':'✗'}</td><td style="font-size:.6rem;color:var(--muted)">${(r.sequence||'').substring(0,12)}…</td>`;
+    tb.appendChild(tr);
+  });
+}
+
+function renderAnalysis(data){
+  const n=data.n_total, hits=data.n_hits;
+  document.getElementById('analysis-content').innerHTML=`
+    <div style="margin-bottom:.75rem">
+      <div style="font-size:.62rem;color:var(--muted);margin-bottom:.3rem;text-transform:uppercase;letter-spacing:.05em">Hit Rate</div>
+      <div style="font-size:1.4rem;font-weight:500;color:var(--green)">${Math.round(100*hits/n)}%</div>
+      <div style="font-size:.62rem;color:var(--muted)">${hits}/${n} sequences within ±0.5 log of target</div>
+    </div>
+    <div style="margin-bottom:.75rem">
+      <div style="font-size:.62rem;color:var(--muted);margin-bottom:.3rem;text-transform:uppercase;letter-spacing:.05em">Model Confidence</div>
+      <div style="font-size:.72rem;color:var(--text);line-height:1.7">
+        koffGNN outputs Gaussian NLL — each prediction includes a log-variance σ² that estimates measurement uncertainty. Sequences with low σ are higher-confidence candidates for synthesis.
+      </div>
+    </div>
+    <div>
+      <div style="font-size:.62rem;color:var(--muted);margin-bottom:.3rem;text-transform:uppercase;letter-spacing:.05em">Next Experiments</div>
+      <div style="font-size:.68rem;color:var(--muted);line-height:1.8">
+        1. Synthesize top 3 sequences (lowest Δlog)<br>
+        2. Run SPR on each vs target protein<br>
+        3. Compare measured vs predicted k<sub>off</sub><br>
+        4. Retrain on new data → model improves
+      </div>
+    </div>`;
+}
+
+function dlCSV(){if(jobId) window.location.href='/download/'+jobId;}
+
+// ══════════════════════════════════════════════════════════════════════════
+// Three.js 3D Viewer
+// ══════════════════════════════════════════════════════════════════════════
+const canvas3d  = document.getElementById('three-canvas');
+const renderer3 = new THREE.WebGLRenderer({canvas:canvas3d,antialias:true,alpha:true});
+renderer3.setPixelRatio(window.devicePixelRatio);
+renderer3.setClearColor(0x080a0d,1);
+const scene3 = new THREE.Scene();
+const cam3   = new THREE.PerspectiveCamera(45,1,0.1,2000);
+cam3.position.set(0,0,120);
+scene3.add(new THREE.AmbientLight(0xffffff,0.4));
+const dl=new THREE.DirectionalLight(0xffffff,0.8); dl.position.set(1,2,3); scene3.add(dl);
+const dl2=new THREE.DirectionalLight(0x60a5fa,0.25); dl2.position.set(-2,-1,-1); scene3.add(dl2);
+
+const group3=new THREE.Group(); scene3.add(group3);
+let rotX3=0,rotY3=0,zoom3=120,dragging3=false,prevX3=0,prevY3=0,autoRot=true;
+
+canvas3d.addEventListener('mousedown',e=>{dragging3=true;autoRot=false;prevX3=e.clientX;prevY3=e.clientY;});
+window.addEventListener('mouseup',()=>dragging3=false);
+window.addEventListener('mousemove',e=>{if(dragging3){rotY3+=(e.clientX-prevX3)*0.4;rotX3+=(e.clientY-prevY3)*0.4;prevX3=e.clientX;prevY3=e.clientY;}});
+canvas3d.addEventListener('wheel',e=>{zoom3=Math.max(30,Math.min(300,zoom3+e.deltaY*0.1));e.preventDefault();},{passive:false});
+
+function resizeViewer(){
+  const w=document.getElementById('viewer-wrap').clientWidth;
+  const h=document.getElementById('viewer-wrap').clientHeight;
+  renderer3.setSize(w,h);
+  cam3.aspect=w/h; cam3.updateProjectionMatrix();
+}
+window.addEventListener('resize',resizeViewer);
+setTimeout(resizeViewer,50);
+
+let nodeMeshes3=[], nodeData3=[];
+const ray3=new THREE.Raycaster();
+const mouse3=new THREE.Vector2();
+
+window.addEventListener('mousemove',e=>{
+  const wr=document.getElementById('viewer-wrap').getBoundingClientRect();
+  if(e.clientX<wr.left||e.clientX>wr.right||e.clientY<wr.top||e.clientY>wr.bottom){document.getElementById('tt3d').style.display='none';return;}
+  mouse3.x=((e.clientX-wr.left)/wr.width)*2-1;
+  mouse3.y=-((e.clientY-wr.top)/wr.height)*2+1;
+  ray3.setFromCamera(mouse3,cam3);
+  const hits=ray3.intersectObjects(nodeMeshes3);
+  const tt=document.getElementById('tt3d');
+  if(hits.length>0){
+    const idx=nodeMeshes3.indexOf(hits[0].object);
+    if(idx>=0){
+      const nd=nodeData3[idx]; selNode=nd;
+      document.getElementById('tt-head').textContent=`${nd.resname}${nd.resnum}`;
+      document.getElementById('tt-chain').textContent=nd.chain_label===0?'Binder':'Target';
+      document.getElementById('tt-attn').textContent=nd.attn_weight.toFixed(4);
+      document.getElementById('tt-burial').textContent=nd.burial.toFixed(3);
+      document.getElementById('tt-scan-btn').style.display=nd.chain_label===0?'block':'none';
+      tt.style.display='block';
+      tt.style.left=(e.clientX+12)+'px'; tt.style.top=(e.clientY-20)+'px';
+    }
+  } else {
+    tt.style.display='none'; selNode=null;
+  }
+});
+
+canvas3d.addEventListener('click',()=>{if(selNode&&selNode.chain_label===0){switchTab('mutations');scanMutation();}});
+
+function build3D(data){
+  while(group3.children.length) group3.remove(group3.children[0]);
+  nodeMeshes3=[]; nodeData3=[];
+  const {nodes,edges,backbone}=data;
+
+  // Backbone
+  backbone.forEach(chain=>{
+    if(chain.coords.length<2) return;
+    const pts=chain.coords.map(c=>new THREE.Vector3(c[0],c[1],c[2]));
+    const curve=new THREE.CatmullRomCurve3(pts);
+    const geom=new THREE.TubeGeometry(curve,pts.length*2,0.35,6,false);
+    const col=chain.is_binder?0x134e4a:0x1e3a5f;
+    group3.add(new THREE.Mesh(geom,new THREE.MeshPhongMaterial({color:col,transparent:true,opacity:0.3,shininess:15})));
+  });
+
+  // Edges
+  edges.filter(e=>e.type==='hbond'||(e.cross_chain&&e.type!=='contact')).slice(0,400).forEach(e=>{
+    const s=nodes[e.src],d=nodes[e.dst];
+    if(!s||!d) return;
+    const col={hbond:0x22d3a0,salt:0xa78bfa,pi:0xf472b6,hydrophobic:0xf59e0b}[e.type]||0x374151;
+    const op=e.type==='hbond'?0.65:0.25;
+    const g=new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(s.x,s.y,s.z),new THREE.Vector3(d.x,d.y,d.z)]);
+    group3.add(new THREE.Line(g,new THREE.LineBasicMaterial({color:col,transparent:true,opacity:op})));
+  });
+
+  // Nodes
+  nodes.forEach((nd,i)=>{
+    const isBinder=nd.chain_label===0;
+    const a=nd.attn_weight;
+    let col;
+    if(isBinder){const g=Math.round(80+a*140);col=(Math.round(a*30)<<16)|(g<<8)|Math.round(a*70);}
+    else{col=(Math.round(a*30)<<16)|((Math.round(90+a*80))<<8)|Math.round(140+a*110);}
+    const r=0.7+a*1.6;
+    const mesh=new THREE.Mesh(new THREE.SphereGeometry(r,10,10),new THREE.MeshPhongMaterial({color:col,shininess:50,emissive:col,emissiveIntensity:0.1}));
+    mesh.position.set(nd.x,nd.y,nd.z);
+    group3.add(mesh); nodeMeshes3.push(mesh); nodeData3.push(nd);
+    if(isBinder&&a>0.65){
+      const ring=new THREE.Mesh(new THREE.RingGeometry(r+0.3,r+0.7,14),new THREE.MeshBasicMaterial({color:0x22d3a0,transparent:true,opacity:0.35,side:THREE.DoubleSide}));
+      ring.position.set(nd.x,nd.y,nd.z); group3.add(ring);
+    }
+  });
+}
+
+function animate3(){
+  requestAnimationFrame(animate3);
+  if(autoRot) rotY3+=0.12;
+  group3.rotation.x=rotX3*Math.PI/180;
+  group3.rotation.y=rotY3*Math.PI/180;
+  cam3.position.z=zoom3;
+  renderer3.render(scene3,cam3);
+}
+animate3();
+
+// ── Mutation Scanner ──────────────────────────────────────────────────────
+async function scanMutation(){
+  if(!selNode||selNode.chain_label!==0){return;}
+  if(!pdbPath||!selChain){alert('Load a structure first');return;}
+  document.getElementById('mut-content').innerHTML='<div class="mut-loading">Scanning 20 substitutions...<br><span style="font-size:.6rem;color:var(--dim)">~30 seconds</span></div>';
+
+  const r=await fetch('/mutant_scan',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pdb_path:pdbPath,binder_chain:selChain,node_idx:selNode.local_idx||selNode.id})});
+  const d=await r.json();
+  if(d.error){document.getElementById('mut-content').innerHTML=`<div style="color:var(--red);font-size:.7rem;padding:1rem">${d.error}</div>`;return;}
+
+  const muts=d.mutations;
+  const minD=Math.min(...muts.map(m=>m.delta_log_koff));
+  const maxD=Math.max(...muts.map(m=>m.delta_log_koff));
+
+  let html=`<div class="mut-title">${d.original_aa}${d.seq_pos+1} — baseline k<sub>off</sub> = ${(10**d.base_log_koff).toExponential(2)} s⁻¹</div>`;
+  html+=`<div style="font-size:.62rem;color:var(--muted);margin-bottom:.6rem">Green = slower k<sub>off</sub> (longer τ) · Red = faster k<sub>off</sub> (shorter τ)</div>`;
+  html+='<div class="heatmap">';
+
+  muts.forEach(m=>{
+    const norm=(m.delta_log_koff-minD)/(maxD-minD+1e-8);
+    const r2=m.delta_log_koff<0?Math.round(30+norm*40):Math.round(180+norm*60);
+    const g2=m.delta_log_koff<0?Math.round(140+norm*90):Math.round(50);
+    const b2=m.delta_log_koff<0?Math.round(80):Math.round(50);
+    const bg=`rgb(${r2},${g2},${b2})`;
+    const orig=m.is_original?'border:2px solid #fff;':'';
+    const sign=m.delta_log_koff>0?'+':'';
+    html+=`<div class="hm-cell" style="background:${bg};${orig}" title="${m.aa}: koff=${m.koff} τ=${m.tau_h}h">
+      <div class="hm-aa">${m.aa}</div>
+      <div class="hm-delta" style="color:${m.delta_log_koff<-0.1?'#22d3a0':m.delta_log_koff>0.1?'#ef4444':'#e8eaf0'}">${sign}${m.delta_log_koff.toFixed(2)}</div>
+    </div>`;
+  });
+  html+='</div>';
+  html+=`<div style="font-size:.6rem;color:var(--muted);margin-top:.5rem">Values show Δlog₁₀(k<sub>off</sub>) vs original ${d.original_aa}${d.seq_pos+1}.<br>White border = original amino acid.</div>`;
+  document.getElementById('mut-content').innerHTML=html;
+}
+
+// ── Convergence chart ─────────────────────────────────────────────────────
+let convChart=null;
+function initChart(){
+  const ctx=document.getElementById('conv-chart').getContext('2d');
+  if(convChart) convChart.destroy();
+  const n=parseInt(document.getElementById('n-chains').value);
+  const cols=['#22d3a0','#60a5fa','#a78bfa','#f59e0b','#ef4444','#34d399','#818cf8','#fb7185','#fbbf24','#38bdf8'];
+  const tgt=parseFloat(document.getElementById('koff-sl').value);
+  const ds=Array.from({length:n},(_,i)=>({label:`${i+1}`,data:[],borderColor:cols[i%cols.length],borderWidth:1.5,pointRadius:0,tension:0.3}));
+  ds.push({label:'target',data:[{x:0,y:tgt},{x:9999,y:tgt}],borderColor:'rgba(255,255,255,0.18)',borderWidth:1,borderDash:[4,4],pointRadius:0});
+  convChart=new Chart(ctx,{type:'line',data:{datasets:ds},options:{animation:false,responsive:true,maintainAspectRatio:false,parsing:false,scales:{x:{type:'linear',grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#6b7280',font:{family:'JetBrains Mono',size:9}}},y:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#6b7280',font:{family:'JetBrains Mono',size:9}},title:{display:true,text:'log₁₀(koff)',color:'#6b7280',font:{family:'JetBrains Mono',size:9}}}},plugins:{legend:{display:false}}}});
+}
+</script>
+</body>
+</html>

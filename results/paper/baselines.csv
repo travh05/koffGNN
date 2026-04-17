@@ -1,0 +1,5 @@
+Model,Test r,Test RMSE,Notes
+Predict mean (trivial baseline),0.0,1.6168,Constant prediction
+Ridge regression (graph scalars only),0.1715,1.5946,No structure
+MLP on ESM-2 mean embedding (no structure),0.5272,1.3714,"Sequence only, no graph"
+"koffGNN (full, ESM-2 + ECMPConv + Attention)",0.7918,0.9917,Our model
