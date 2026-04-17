@@ -1,4 +1,4 @@
-# koff_designer — Kinetics-Conditioned Protein Binder Design
+# koff designer - Kinetics Conditioned Protein Binder Design
 ## A GNN that designs binders with specified residence time (koff)
 
 ---
