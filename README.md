@@ -1,7 +1,7 @@
 # koff designer - Kinetics Conditioned Protein Binder Design
 ## A GNN that designs binders with specified residence time (koff)
 
----
+
 
 ## What this does
 
@@ -15,7 +15,7 @@ bound to its target.
 that predict unbinding barriers — a representation nobody has trained a
 generative model on.
 
----
+
 
 ## Directory structure
 
